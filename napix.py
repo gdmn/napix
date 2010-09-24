@@ -91,7 +91,7 @@ if __name__=='__main__':
     usage = "usage: %prog [options] FILE1 FILE2 ..."
     parser = OptionParser(usage)
     parser.add_option("-d", "--dir", dest="dir", #default="",
-                      help="katalog z filmami", metavar="DIR")
+                      help="directory with movies", metavar="DIR")
     parser.add_option("-e", "--ext", dest="ext", metavar="EXT1,EXT2",
                       help="follow up additional extensions")
     (options, args) = parser.parse_args()
