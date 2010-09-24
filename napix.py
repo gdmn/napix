@@ -101,8 +101,9 @@ if __name__=='__main__':
         sys.exit(1)
 
     # add new extesions to the list
-    l = options.ext.split(',')
-    FILE_FORMATS.extend(l)
+    if options.ext:
+        l = options.ext.split(',')
+        FILE_FORMATS.extend(l)
 
     l = get_files(options.dir)
     for f in itertools.chain(l, args):
