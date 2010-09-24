@@ -53,6 +53,13 @@ def convert(z):
 
     return ''.join(b)
 
+def split_ext(filename):
+    """
+    Return tuple of filename and extenstion.
+    """
+    l = filename.rpartition('.')
+    return (l[0], l[2])
+
 def gen_url(fname):
     hashsum = hashlib.md5();
     hashsum.update(open(fname).read(10485760))
@@ -83,8 +90,7 @@ def get_files(dirpath):
     def add_file(l, directory, files):
         for f in files:
             path = os.path.join(directory, f)
-            if os.path.isfile(path) and \
-                                f.rpartition('.')[2].lower() in FILE_FORMATS:
+            if os.path.isfile(path) and split_ext(f)[1].lower() in FILE_FORMATS:
                 l.append(path)
 
     l = []
