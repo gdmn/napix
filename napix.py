@@ -78,13 +78,19 @@ def get_subtitle(fname):
     os.remove(f.name)
 
 def get_files(dirpath):
+    def add_file(l, directory, files):
+        for f in files:
+            path = os.path.join(directory, f)
+            if os.path.isfile(path) and \
+                                f.rpartition('.')[2].lower() in FILE_FORMATS:
+                l.append(path)
+
     l = []
-    if dirpath:
-        if os.path.exists(dirpath):
-            for ext in FILE_FORMATS:
-                l.extend(glob(os.path.join(dirpath, '*.%s' % ext)))
-        else:
-            print >>sys.stderr, "%s : Dir not found" % dirpath
+    if dirpath and os.path.isdir(dirpath):
+        os.path.walk(dirpath, add_file, l)
+    else:
+        print >>sys.stderr, "%s : Dir not found" % dirpath
+
     return l
 
 if __name__=='__main__':
@@ -103,7 +109,7 @@ if __name__=='__main__':
     # add new extesions to the list
     if options.ext:
         l = options.ext.split(',')
-        FILE_FORMATS.extend(l)
+        FILE_FORMATS.extend([ x.lower() for x in l ])
 
     l = get_files(options.dir)
     for f in itertools.chain(l, args):
