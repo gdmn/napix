@@ -29,12 +29,14 @@
 
 import hashlib, urllib
 import sys, os, os.path
+import pynotify
 from shutil import copy2 as copyfile
 from glob import glob
 from optparse import OptionParser
 from tempfile import NamedTemporaryFile
 
 FILE_FORMATS = ['avi', 'mpg', 'mp4', 'rmvb',]
+NOTIFY = []
 
 def convert(z):
     idx = [ 0xe, 0x3,  0x6, 0x8, 0x2 ]
@@ -94,10 +96,13 @@ def get_subtitle(fname):
         hash_new.update(open(f_newtxt.name).read())
         if hash_old.hexdigest() != hash_new.hexdigest():
             os.rename(txtpath, txtpath+".bak")
+            notify(os.path.basename(fname), "[OK - backup]")
             print " : [ OK - backup ]"
         else:
-            print " : [ OK - exists ]"
+             notify(os.path.basename(fname), "[OK - exists]")
+             print " : [ OK - exists ]"
     else:
+        notify(os.path.basename(fname), "[OK]")
         print " : [ OK ]"
     copyfile(f_newtxt.name, txtpath)
 
@@ -115,15 +120,25 @@ def get_files(dirpath):
     if dirpath and os.path.isdir(dirpath):
         os.path.walk(dirpath, add_file, l)
     else:
+        notify(dirpath, "[Dir not found]")
         print >>sys.stderr, "%s : Dir not found" % dirpath
 
     return l
+
+def notify(title, text):
+	if not pynotify.init("icon-summary-body"):
+		sys.exit(1)
+	if options.notify:
+	    n = pynotify.Notification(title, text)
+	    n.show()
 
 if __name__=='__main__':
     usage = "usage: %prog [options] FILE1 FILE2 ..."
     parser = OptionParser(usage)
     parser.add_option("-e", "--ext", dest="ext", metavar="EXT1,EXT2",
                       help="follow up additional extensions")
+    parser.add_option("-n", "--notify", dest="notify", action="store_true",
+                      help="display notifications")
     (options, args) = parser.parse_args()
 
     if not args:
@@ -148,4 +163,6 @@ if __name__=='__main__':
         if os.path.isfile(f):
             get_subtitle(f)
         else:
+            notify(f, "[File not found or directory]")
             print >>sys.stderr, "%s : File not found or directory" % f
+
