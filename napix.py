@@ -92,11 +92,17 @@ if __name__=='__main__':
     parser = OptionParser(usage)
     parser.add_option("-d", "--dir", dest="dir", #default="",
                       help="katalog z filmami", metavar="DIR")
+    parser.add_option("-e", "--ext", dest="ext", metavar="EXT1,EXT2",
+                      help="follow up additional extensions")
     (options, args) = parser.parse_args()
 
     if not (args or options.dir):
         parser.print_help()
         sys.exit(1)
+
+    # add new extesions to the list
+    l = options.ext.split(',')
+    FILE_FORMATS.extend(l)
 
     l = get_files(options.dir)
     for f in itertools.chain(l, args):
