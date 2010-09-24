@@ -29,7 +29,6 @@
 
 import hashlib, urllib
 import sys, os, os.path
-import itertools
 from shutil import copy2 as copyfile
 from glob import glob
 from optparse import OptionParser
@@ -123,13 +122,11 @@ def get_files(dirpath):
 if __name__=='__main__':
     usage = "usage: %prog [options] FILE1 FILE2 ..."
     parser = OptionParser(usage)
-    parser.add_option("-d", "--dir", dest="dir", #default="",
-                      help="directory with movies", metavar="DIR")
     parser.add_option("-e", "--ext", dest="ext", metavar="EXT1,EXT2",
                       help="follow up additional extensions")
     (options, args) = parser.parse_args()
 
-    if not (args or options.dir):
+    if not args:
         parser.print_help()
         sys.exit(1)
 
@@ -138,8 +135,16 @@ if __name__=='__main__':
         l = options.ext.split(',')
         FILE_FORMATS.extend([ x.lower() for x in l ])
 
-    l = get_files(options.dir)
-    for f in itertools.chain(l, args):
+    # detect dirs
+    filelist = []
+    for f in args:
+        if os.path.isdir(f):
+            filelist.extend(get_files(f))
+        else:
+            filelist.append(f)
+
+    # main action
+    for f in filelist:
         if os.path.isfile(f):
             get_subtitle(f)
         else:
