@@ -30,6 +30,7 @@
 import hashlib, urllib
 import sys, os, os.path
 import itertools
+from shutil import copy2 as copyfile
 from glob import glob
 from optparse import OptionParser
 from tempfile import NamedTemporaryFile
@@ -71,20 +72,36 @@ def gen_url(fname):
 
 def get_subtitle(fname):
     url = gen_url(fname)
-    f = NamedTemporaryFile(delete=False)
-    f.write(urllib.urlopen(url).read())
-    f.close() # flush buffers
-    name=fname[:-3] + 'txt'
+    f_archive7z = NamedTemporaryFile(delete=False)
+    f_archive7z.write(urllib.urlopen(url).read())
+    f_archive7z.close() # flush buffers
+    txtpath=split_ext(fname)[0] + '.txt'
+
+    f_newtxt = NamedTemporaryFile(delete=False)
+    f_newtxt.close()
 
     print os.path.basename(fname),
-    if options.backup and os.path.exists(name):
-        os.rename(name, name+".bak")
-    if os.system("/usr/bin/7z x -y -so -piBlm8NTigvru0Jr0 %s 2>/dev/null >\"%s\"" % (f.name, name)):
+
+    if os.path.exists(txtpath):
+        hash_old = hashlib.md5()
+        hash_old.update(open(txtpath).read())
+
+    if os.system("/usr/bin/7z x -y -so -piBlm8NTigvru0Jr0 %s 2>/dev/null >\"%s\"" % (f_archive7z.name, f_newtxt.name)):
         print " : [ FAIL ]"
-        os.remove(name)
+    elif os.path.exists(txtpath):
+        hash_new = hashlib.md5()
+        hash_new.update(open(f_newtxt.name).read())
+        if hash_old.hexdigest() != hash_new.hexdigest():
+            os.rename(txtpath, txtpath+".bak")
+            print " : [ OK - backup ]"
+        else:
+            print " : [ OK - exists ]"
     else:
         print " : [ OK ]"
-    os.remove(f.name)
+    copyfile(f_newtxt.name, txtpath)
+
+    os.remove(f_archive7z.name)
+    os.remove(f_newtxt.name)
 
 def get_files(dirpath):
     def add_file(l, directory, files):
@@ -104,13 +121,10 @@ def get_files(dirpath):
 if __name__=='__main__':
     usage = "usage: %prog [options] FILE1 FILE2 ..."
     parser = OptionParser(usage)
-    parser.set_defaults(backup=False)
     parser.add_option("-d", "--dir", dest="dir", #default="",
                       help="directory with movies", metavar="DIR")
     parser.add_option("-e", "--ext", dest="ext", metavar="EXT1,EXT2",
                       help="follow up additional extensions")
-    parser.add_option("-b", "--backup", dest="backup", action="store_true",
-                      help="make backup before overwrite (DEFAULT: false)")
     (options, args) = parser.parse_args()
 
     if not (args or options.dir):
