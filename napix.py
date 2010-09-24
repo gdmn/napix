@@ -70,6 +70,8 @@ def get_subtitle(fname):
     name=fname[:-3] + 'txt'
 
     print os.path.basename(fname),
+    if options.backup and os.path.exists(name):
+        os.rename(name, name+".bak")
     if os.system("/usr/bin/7z x -y -so -piBlm8NTigvru0Jr0 %s 2>/dev/null >\"%s\"" % (f.name, name)):
         print " : [ FAIL ]"
         os.remove(name)
@@ -96,10 +98,13 @@ def get_files(dirpath):
 if __name__=='__main__':
     usage = "usage: %prog [options] FILE1 FILE2 ..."
     parser = OptionParser(usage)
+    parser.set_defaults(backup=False)
     parser.add_option("-d", "--dir", dest="dir", #default="",
                       help="directory with movies", metavar="DIR")
     parser.add_option("-e", "--ext", dest="ext", metavar="EXT1,EXT2",
                       help="follow up additional extensions")
+    parser.add_option("-b", "--backup", dest="backup", action="store_true",
+                      help="make backup before overwrite (DEFAULT: false)")
     (options, args) = parser.parse_args()
 
     if not (args or options.dir):
