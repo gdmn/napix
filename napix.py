@@ -107,7 +107,7 @@ if __name__=='__main__':
 
     l = get_files(options.dir)
     for f in itertools.chain(l, args):
-        if os.path.exists(f):
+        if os.path.isfile(f):
             get_subtitle(f)
         else:
-            print >>sys.stderr, "%s : File not found" % f
+            print >>sys.stderr, "%s : File not found or directory" % f
