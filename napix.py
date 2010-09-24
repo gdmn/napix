@@ -86,7 +86,9 @@ def get_subtitle(fname):
         hash_old = hashlib.md5()
         hash_old.update(open(txtpath).read())
 
-    if os.system("/usr/bin/7z x -y -so -piBlm8NTigvru0Jr0 %s 2>/dev/null >\"%s\"" % (f_archive7z.name, f_newtxt.name)):
+    # XXX Use this when resolved - http://bugs.python.org/issue5689
+    if os.system("7z x -y -so -piBlm8NTigvru0Jr0 %s 2>/dev/null >\"%s\"" % (
+                                            f_archive7z.name, f_newtxt.name)):
         print " : [ FAIL ]"
     elif os.path.exists(txtpath):
         hash_new = hashlib.md5()
