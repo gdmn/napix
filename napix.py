@@ -81,8 +81,6 @@ def get_subtitle(fname):
     f_newtxt = NamedTemporaryFile(delete=False)
     f_newtxt.close()
 
-    print os.path.basename(fname),
-
     if os.path.exists(txtpath):
         hash_old = hashlib.md5()
         hash_old.update(open(txtpath).read())
@@ -90,20 +88,17 @@ def get_subtitle(fname):
     # XXX Use this when resolved - http://bugs.python.org/issue5689
     if os.system("7z x -y -so -piBlm8NTigvru0Jr0 %s 2>/dev/null >\"%s\"" % (
                                             f_archive7z.name, f_newtxt.name)):
-        print " : [ FAIL ]"
+        message(os.path.basename(fname), "FAIL", 1)
     elif os.path.exists(txtpath):
         hash_new = hashlib.md5()
         hash_new.update(open(f_newtxt.name).read())
         if hash_old.hexdigest() != hash_new.hexdigest():
             os.rename(txtpath, txtpath+".bak")
-            notify(os.path.basename(fname), "[OK - backup]")
-            print " : [ OK - backup ]"
+            message(os.path.basename(fname), "OK (backup)", 1)
         else:
-             notify(os.path.basename(fname), "[OK - exists]")
-             print " : [ OK - exists ]"
+            message(os.path.basename(fname), "OK (exists)", 1)
     else:
-        notify(os.path.basename(fname), "[OK]")
-        print " : [ OK ]"
+        message(os.path.basename(fname), "OK", 1)
     copyfile(f_newtxt.name, txtpath)
 
     os.remove(f_archive7z.name)
@@ -120,17 +115,28 @@ def get_files(dirpath):
     if dirpath and os.path.isdir(dirpath):
         os.path.walk(dirpath, add_file, l)
     else:
-        notify(dirpath, "[Dir not found]")
-        print >>sys.stderr, "%s : Dir not found" % dirpath
-
+        message(dirpath, 'NOT FOUND', 0)
     return l
 
-def notify(title, text):
-	if not pynotify.init("icon-summary-body"):
+def notify():
+	if not pynotify.init("napix"):
 		sys.exit(1)
 	if options.notify:
-	    n = pynotify.Notification(title, text)
+	    text = "";
+	    for message in NOTIFY:
+	        text += message+"\n" 
+	    n = pynotify.Notification('Napix result:', text)
+	    n.set_urgency(pynotify.URGENCY_LOW)
 	    n.show()
+	    
+def message(file, message, type):
+    if not options.silent:
+        if type == 1:
+            print "%s - %s" % (file, message)
+        else:
+            print >>sys.stderr, "%s - %s" % (file, message)
+    if options.notify:
+        NOTIFY.append("%s - %s" % (file, message))
 
 if __name__=='__main__':
     usage = "usage: %prog [options] FILE1 FILE2 ..."
@@ -139,6 +145,8 @@ if __name__=='__main__':
                       help="follow up additional extensions")
     parser.add_option("-n", "--notify", dest="notify", action="store_true",
                       help="display notifications")
+    parser.add_option("-s", "--silent", dest="silent", action="store_true",
+                      help="silent mode")
     (options, args) = parser.parse_args()
 
     if not args:
@@ -163,6 +171,8 @@ if __name__=='__main__':
         if os.path.isfile(f):
             get_subtitle(f)
         else:
-            notify(f, "[File not found or directory]")
-            print >>sys.stderr, "%s : File not found or directory" % f
+            message(f, "NOT FOUND", 0)
+            
+    # display notifications
+    notify()
 
