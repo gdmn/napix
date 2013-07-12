@@ -73,15 +73,6 @@ def gen_url(fname):
             hexdigest, convert(hexdigest), os.name)
     return url
 
-def runProcess(exe):
-    p = subprocess.Popen(exe, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    while(True):
-        retcode = p.poll() #returns None while subprocess is running
-        line = p.stdout.readline()
-        yield line
-        if(retcode is not None):
-          break
-
 def run_command(command):
     p = subprocess.Popen(command,
                          stdout=subprocess.PIPE,
