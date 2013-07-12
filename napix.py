@@ -1,12 +1,15 @@
-#!/usr/bin/env python
-# 
+#!/usr/bin/env python2
+#
+# Copyright (C) 2013 Damian Gorlach
+# Optimization, conversion to UTF-8 added, conversion to subrip format added.
+#
 # Copyright (C) 2010 Bartosz SKOWRON.
 #
 # Author: Bartosz SKOWRON <getxsick at gmail dot com>
 #
 # convert() is based on reversed napi 0.16.3.1 application without any license
 #
-# Requirements: 7z (p7zip-full on Debian system)
+# Requirements: 7z (p7zip-full on Debian system), iconv, file
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -29,14 +32,13 @@
 
 import hashlib, urllib
 import sys, os, os.path
-import pynotify
 from shutil import copy2 as copyfile
 from glob import glob
 from optparse import OptionParser
 from tempfile import NamedTemporaryFile
+import subprocess
 
-FILE_FORMATS = ['avi', 'mpg', 'mp4', 'rmvb',]
-NOTIFY = []
+FILE_FORMATS = ['avi', 'mpg', 'mpeg', 'mp4', 'rmvb', 'mkv', 'mov', 'wmv',]
 
 def convert(z):
     idx = [ 0xe, 0x3,  0x6, 0x8, 0x2 ]
@@ -71,38 +73,62 @@ def gen_url(fname):
             hexdigest, convert(hexdigest), os.name)
     return url
 
-def get_subtitle(fname):
-    url = gen_url(fname)
-    f_archive7z = NamedTemporaryFile(delete=False)
-    f_archive7z.write(urllib.urlopen(url).read())
-    f_archive7z.close() # flush buffers
-    txtpath=split_ext(fname)[0] + '.txt'
+def runProcess(exe):
+    p = subprocess.Popen(exe, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    while(True):
+        retcode = p.poll() #returns None while subprocess is running
+        line = p.stdout.readline()
+        yield line
+        if(retcode is not None):
+          break
 
-    f_newtxt = NamedTemporaryFile(delete=False)
-    f_newtxt.close()
+def run_command(command):
+    p = subprocess.Popen(command,
+                         stdout=subprocess.PIPE,
+                         stderr=subprocess.STDOUT)
+    return iter(p.stdout.readline, b'')
+
+def get_subtitle(fname):
+    txtpath=split_ext(fname)[0] + '.txt'
+    srtpath=split_ext(fname)[0] + '.srt'
 
     if os.path.exists(txtpath):
-        hash_old = hashlib.md5()
-        hash_old.update(open(txtpath).read())
-
-    # XXX Use this when resolved - http://bugs.python.org/issue5689
-    if os.system("7z x -y -so -piBlm8NTigvru0Jr0 %s 2>/dev/null >\"%s\"" % (
-                                            f_archive7z.name, f_newtxt.name)):
-        message(os.path.basename(fname), "FAIL", 1)
-    elif os.path.exists(txtpath):
-        hash_new = hashlib.md5()
-        hash_new.update(open(f_newtxt.name).read())
-        if hash_old.hexdigest() != hash_new.hexdigest():
-            os.rename(txtpath, txtpath+".bak")
-            message(os.path.basename(fname), "OK (backup)", 1)
-        else:
-            message(os.path.basename(fname), "OK (exists)", 1)
+        message(os.path.basename(fname), "OK (exists)", 1)
     else:
-        message(os.path.basename(fname), "OK", 1)
-    copyfile(f_newtxt.name, txtpath)
+        message(os.path.basename(fname), "Searching...", 1)
+        url = gen_url(fname)
+        f_archive7z = NamedTemporaryFile(delete=False)
+        f_archive7z.write(urllib.urlopen(url).read())
+        f_archive7z.close() # flush buffers
+        f_newtxt = NamedTemporaryFile(delete=False)
+        f_newtxt.close()
 
-    os.remove(f_archive7z.name)
-    os.remove(f_newtxt.name)
+        # XXX Use this when resolved - http://bugs.python.org/issue5689
+        if os.system("7z x -y -so -piBlm8NTigvru0Jr0 %s 2>/dev/null >\"%s\"" % (
+                                                f_archive7z.name, f_newtxt.name)):
+            message(os.path.basename(fname), "FAIL", 1)
+        else:
+            try:
+                command = ["file", f_newtxt.name]
+                txtype = 0
+                for line in run_command(command):
+                    if line.find('UTF') > 0:
+                        txtype = 1
+                if txtype == 0:
+                    message(os.path.basename(fname), "Trying to make UTF", 1)
+                    os.system("iconv -f windows-1250 -t utf-8 -o %s %s" % (f_newtxt.name, f_newtxt.name))
+                if options.subrip:
+                    message(os.path.basename(fname), "Trying to make SRT", 1)
+                    if 0 != os.system("mplayer -frames 0 -really-quiet -vo null -ao null -subcp utf8 -sub \"%s\" -dumpsrtsub \"%s\"" %(
+                        f_newtxt.name, fname)) or 0 != os.system("mv dumpsub.srt \"%s\"" %(srtpath)):
+                        message(os.path.basename(fname), "Failed to make SRT", 1)
+                copyfile(f_newtxt.name, txtpath)
+                message(os.path.basename(fname), "OK", 1)
+            except:
+                message(os.path.basename(fname), sys.exc_info(), 1)
+            finally:
+                os.remove(f_archive7z.name)
+                os.remove(f_newtxt.name)
 
 def get_files(dirpath):
     def add_file(l, directory, files):
@@ -118,35 +144,22 @@ def get_files(dirpath):
         message(dirpath, 'NOT FOUND', 0)
     return l
 
-def notify():
-	if not pynotify.init("napix"):
-		sys.exit(1)
-	if options.notify:
-	    text = "";
-	    for message in NOTIFY:
-	        text += message+"\n" 
-	    n = pynotify.Notification('Napix result:', text)
-	    n.set_urgency(pynotify.URGENCY_LOW)
-	    n.show()
-	    
 def message(file, message, type):
     if not options.silent:
         if type == 1:
-            print "%s - %s" % (file, message)
+            print("%s - %s" % (file, message))
         else:
-            print >>sys.stderr, "%s - %s" % (file, message)
-    if options.notify:
-        NOTIFY.append("%s - %s" % (file, message))
+            print("%s - %s" % (file, message))
 
 if __name__=='__main__':
     usage = "usage: %prog [options] FILE1 FILE2 ..."
     parser = OptionParser(usage)
     parser.add_option("-e", "--ext", dest="ext", metavar="EXT1,EXT2",
                       help="follow up additional extensions")
-    parser.add_option("-n", "--notify", dest="notify", action="store_true",
-                      help="display notifications")
     parser.add_option("-s", "--silent", dest="silent", action="store_true",
                       help="silent mode")
+    parser.add_option("-r", "--subrip", dest="subrip", action="store_true",
+                      help="use mplayer for generating .srt")
     (options, args) = parser.parse_args()
 
     if not args:
@@ -172,7 +185,4 @@ if __name__=='__main__':
             get_subtitle(f)
         else:
             message(f, "NOT FOUND", 0)
-            
-    # display notifications
-    notify()
 
