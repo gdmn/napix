@@ -65,9 +65,19 @@ def split_ext(filename):
     return (l[0], l[2])
 
 def gen_url(fname):
-    hashsum = hashlib.md5();
-    hashsum.update(open(fname).read(10485760))
-    hexdigest = hashsum.hexdigest()
+    hashpath=split_ext(fname)[0] + '.hash'
+    first_line=""
+    if os.path.exists(hashpath):
+        with open(hashpath, 'r') as f:
+            hexdigest = f.readline()
+        message(os.path.basename(fname), "Cached hash %s" % (hexdigest), 1)
+    else:
+        hashsum = hashlib.md5();
+        hashsum.update(open(fname).read(10485760))
+        hexdigest = hashsum.hexdigest()
+        with open(hashpath, 'w') as f:
+            f.write(hexdigest)
+        #message(os.path.basename(fname), "Wrote hash %s" % (hexdigest), 1)
 
     url = "http://napiprojekt.pl/unit_napisy/dl.php?l=PL&f=%s&t=%s&v=other&kolejka=false&nick=&pass=&napios=%s" % (
             hexdigest, convert(hexdigest), os.name)
@@ -82,6 +92,7 @@ def run_command(command):
 def get_subtitle(fname):
     txtpath=split_ext(fname)[0] + '.txt'
     srtpath=split_ext(fname)[0] + '.srt'
+    hashpath=split_ext(fname)[0] + '.hash'
 
     if os.path.exists(txtpath):
         message(os.path.basename(fname), "OK (exists)", 1)
@@ -114,6 +125,7 @@ def get_subtitle(fname):
                         f_newtxt.name, fname)) or 0 != os.system("mv dumpsub.srt \"%s\"" %(srtpath)):
                         message(os.path.basename(fname), "Failed to make SRT", 1)
                 copyfile(f_newtxt.name, txtpath)
+                os.remove(hashpath)
                 message(os.path.basename(fname), "OK", 1)
             except:
                 message(os.path.basename(fname), sys.exc_info(), 1)
