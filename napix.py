@@ -107,7 +107,11 @@ def get_subtitle(fname):
                         txtype = 1
                 if txtype == 0:
                     message(os.path.basename(fname), "Trying to make UTF", 1)
-                    os.system("iconv -f windows-1250 -t utf-8 -o %s %s" % (f_newtxt.name, f_newtxt.name))
+                    f_newtxtu8 = NamedTemporaryFile(delete=False)
+                    f_newtxtu8.close()
+                    os.system("iconv -f windows-1250 -t utf-8 -o %s %s" % (f_newtxtu8.name, f_newtxt.name))
+                    copyfile(f_newtxtu8.name, f_newtxt.name)
+                    os.remove(f_newtxtu8.name)
                 if options.subrip:
                     message(os.path.basename(fname), "Trying to make SRT", 1)
                     if 0 != os.system("mplayer -frames 0 -really-quiet -vo null -ao null -subcp utf8 -sub \"%s\" -dumpsrtsub \"%s\"" %(
