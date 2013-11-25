@@ -57,6 +57,15 @@ def convert(z):
 
     return ''.join(b)
 
+def split_fn_ext(filename):
+    """
+    Return tuple of directory and filename and extenstion.
+    """
+    l = filename.rpartition('.')
+    d = filename.rpartition('/')
+    l = d[2].rpartition('.')
+    return (d[0] + '/', l[0], l[2])
+
 def split_ext(filename):
     """
     Return tuple of filename and extenstion.
@@ -64,8 +73,14 @@ def split_ext(filename):
     l = filename.rpartition('.')
     return (l[0], l[2])
 
+def gen_hashname(fname):
+    hp = split_fn_ext(fname)
+    r = hp[0] + '.' + hp[1] + '.hash'
+    return r
+
 def gen_url(fname):
-    hashpath=split_ext(fname)[0] + '.hash'
+    hashpath=gen_hashname(fname)
+    message(os.path.basename(hashpath), "hash", 1)
     first_line=""
     if os.path.exists(hashpath):
         with open(hashpath, 'r') as f:
@@ -77,7 +92,6 @@ def gen_url(fname):
         hexdigest = hashsum.hexdigest()
         with open(hashpath, 'w') as f:
             f.write(hexdigest)
-        #message(os.path.basename(fname), "Wrote hash %s" % (hexdigest), 1)
 
     url = "http://napiprojekt.pl/unit_napisy/dl.php?l=PL&f=%s&t=%s&v=other&kolejka=false&nick=&pass=&napios=%s" % (
             hexdigest, convert(hexdigest), os.name)
@@ -92,7 +106,7 @@ def run_command(command):
 def get_subtitle(fname):
     txtpath=split_ext(fname)[0] + '.txt'
     srtpath=split_ext(fname)[0] + '.srt'
-    hashpath=split_ext(fname)[0] + '.hash'
+    hashpath=gen_hashname(fname)
 
     if os.path.exists(txtpath):
         message(os.path.basename(fname), "OK (exists)", 1)
