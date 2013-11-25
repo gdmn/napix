@@ -64,7 +64,12 @@ def split_fn_ext(filename):
     l = filename.rpartition('.')
     d = filename.rpartition('/')
     l = d[2].rpartition('.')
-    return (d[0] + '/', l[0], l[2])
+    di = ''
+    if d[0] == '':
+        di = ''
+    else:
+        di = d[0] + '/'
+    return (di, l[0], l[2])
 
 def split_ext(filename):
     """
@@ -80,7 +85,7 @@ def gen_hashname(fname):
 
 def gen_url(fname):
     hashpath=gen_hashname(fname)
-    message(os.path.basename(hashpath), "hash", 1)
+    #message(os.path.basename(hashpath), "hash", 1)
     first_line=""
     if os.path.exists(hashpath):
         with open(hashpath, 'r') as f:
