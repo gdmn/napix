@@ -138,7 +138,7 @@ def get_subtitle(fname):
 
         # XXX Use this when resolved - http://bugs.python.org/issue5689
         if os.system("7z x -y -so -piBlm8NTigvru0Jr0 %s 2>/dev/null >\"%s\"" % (f_archive7z.name, f_newtxt.name)):
-            message(os.path.basename(fname), "FAIL - do you have 7z installed", 1)
+            message(os.path.basename(fname), "FAIL", 1)
         else:
             try:
                 command = ["file", f_newtxt.name]
