@@ -81,6 +81,7 @@ def split_ext(filename):
 def gen_hashname(fname):
     hp = split_fn_ext(fname)
     r = hp[0] + '.' + hp[1] + '.hash'
+    verbose("hashname: " + r);
     return r
 
 def gen_url(fname):
@@ -88,21 +89,26 @@ def gen_url(fname):
     #message(os.path.basename(hashpath), "hash", 1)
     first_line=""
     if os.path.exists(hashpath):
+        verbose("hash exists");
         with open(hashpath, 'r') as f:
             hexdigest = f.readline()
+        verbose("cached hash %s" % (hexdigest))
         message(os.path.basename(fname), "Cached hash %s" % (hexdigest), 1)
     else:
         hashsum = hashlib.md5();
         hashsum.update(open(fname).read(10485760))
         hexdigest = hashsum.hexdigest()
+        verbose("generated hash: " + hexdigest);
         with open(hashpath, 'w') as f:
             f.write(hexdigest)
 
     url = "http://napiprojekt.pl/unit_napisy/dl.php?l=PL&f=%s&t=%s&v=other&kolejka=false&nick=&pass=&napios=%s" % (
             hexdigest, convert(hexdigest), os.name)
+    verbose("url: " + url);
     return url
 
 def run_command(command):
+    verbose("running: [%s]" % ', '.join(map(str, command)));
     p = subprocess.Popen(command,
                          stdout=subprocess.PIPE,
                          stderr=subprocess.STDOUT)
@@ -113,21 +119,26 @@ def get_subtitle(fname):
     srtpath=split_ext(fname)[0] + '.srt'
     hashpath=gen_hashname(fname)
 
+    verbose("txtpath: " + txtpath);
+    verbose("srtpath: " + srtpath);
+    verbose("hashpath: " + hashpath);
+
     if os.path.exists(txtpath):
         message(os.path.basename(fname), "OK (exists)", 1)
     else:
         message(os.path.basename(fname), "Searching...", 1)
         url = gen_url(fname)
         f_archive7z = NamedTemporaryFile(delete=False)
+        verbose("f_archive7z: " + str(f_archive7z));
         f_archive7z.write(urllib.urlopen(url).read())
         f_archive7z.close() # flush buffers
         f_newtxt = NamedTemporaryFile(delete=False)
+        verbose("f_newtxt: " + str(f_newtxt));
         f_newtxt.close()
 
         # XXX Use this when resolved - http://bugs.python.org/issue5689
-        if os.system("7z x -y -so -piBlm8NTigvru0Jr0 %s 2>/dev/null >\"%s\"" % (
-                                                f_archive7z.name, f_newtxt.name)):
-            message(os.path.basename(fname), "FAIL", 1)
+        if os.system("7z x -y -so -piBlm8NTigvru0Jr0 %s 2>/dev/null >\"%s\"" % (f_archive7z.name, f_newtxt.name)):
+            message(os.path.basename(fname), "FAIL - do you have 7z installed", 1)
         else:
             try:
                 command = ["file", f_newtxt.name]
@@ -135,11 +146,14 @@ def get_subtitle(fname):
                 for line in run_command(command):
                     if line.find('UTF') > 0:
                         txtype = 1
+                verbose("txtype: " + str(txtype))
                 if txtype == 0:
                     message(os.path.basename(fname), "Trying to make UTF", 1)
                     f_newtxtu8 = NamedTemporaryFile(delete=False)
+                    verbose("f_newtxtu8: " + str(f_newtxtu8));
                     f_newtxtu8.close()
                     os.system("iconv -f windows-1250 -t utf-8 -o %s %s" % (f_newtxtu8.name, f_newtxt.name))
+                    verbose("copy " + str(f_newtxtu8.name) + " to " + str(f_newtxt));
                     copyfile(f_newtxtu8.name, f_newtxt.name)
                     os.remove(f_newtxtu8.name)
                 if options.subrip:
@@ -147,6 +161,7 @@ def get_subtitle(fname):
                     if 0 != os.system("mplayer -frames 0 -really-quiet -vo null -ao null -subcp utf8 -sub \"%s\" -dumpsrtsub \"%s\"" %(
                         f_newtxt.name, fname)) or 0 != os.system("mv dumpsub.srt \"%s\"" %(srtpath)):
                         message(os.path.basename(fname), "Failed to make SRT", 1)
+                verbose("copy " + str(f_newtxt.name) + " to " + str(txtpath));
                 copyfile(f_newtxt.name, txtpath)
                 os.remove(hashpath)
                 message(os.path.basename(fname), "OK", 1)
@@ -177,6 +192,36 @@ def message(file, message, type):
         else:
             print("%s - %s" % (file, message))
 
+def verbose(message):
+    if not options.silent:
+        if options.verbose:
+            print("> %s" % message)
+
+def which(program):
+    import os
+    def is_exe(fpath):
+        return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
+
+    fpath, fname = os.path.split(program)
+    if fpath:
+        if is_exe(program):
+            return program
+    else:
+        for path in os.environ["PATH"].split(os.pathsep):
+            path = path.strip('"')
+            exe_file = os.path.join(path, program)
+            if is_exe(exe_file):
+                return exe_file
+
+    return None
+
+
+def needed_software(name):
+    verbose("checking " + name)
+    if which(name) is None:
+        print('You must install %s to use this program.' % (name))
+        sys.exit(2)
+
 if __name__=='__main__':
     usage = "usage: %prog [options] FILE1 FILE2 ..."
     parser = OptionParser(usage)
@@ -186,11 +231,23 @@ if __name__=='__main__':
                       help="silent mode")
     parser.add_option("-r", "--subrip", dest="subrip", action="store_true",
                       help="use mplayer for generating .srt")
+    parser.add_option("-v", "--verbose", dest="verbose", action="store_true",
+                      help="be more verbose")
     (options, args) = parser.parse_args()
 
     if not args:
         parser.print_help()
         sys.exit(1)
+
+    needed_software("iconv")
+    needed_software("mplayer")
+    needed_software("7z")
+    needed_software("mv")
+
+    verbose("options.ext " + str(options.ext));
+    verbose("options.subrip " + str(options.subrip));
+    verbose("options.silent " + str(options.silent));
+    verbose("options.verbose " + str(options.verbose));
 
     # add new extesions to the list
     if options.ext:
@@ -208,6 +265,7 @@ if __name__=='__main__':
     # main action
     for f in filelist:
         if os.path.isfile(f):
+            verbose("file " + f);
             get_subtitle(f)
         else:
             message(f, "NOT FOUND", 0)
